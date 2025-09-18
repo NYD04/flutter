@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "605277296015",
+    "project_id": "newestdelivery",
+    "storage_bucket": "newestdelivery.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:605277296015:android:be9840894d834f5eb967fa",
+        "android_client_info": {
+          "package_name": "com.example.delivery_ass"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDR0sVj-0s2EF73WcHio5sIQwqECX-aLsM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
