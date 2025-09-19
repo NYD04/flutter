@@ -72,4 +72,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'newestdelivery.firebasestorage.app',
     iosBundleId: 'com.example.deliveryAss',
   );
+
 }

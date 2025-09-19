@@ -1,9 +1,10 @@
 import 'dart:core';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_ui_auth/firebase_ui_auth.dart';
 import 'package:flutter/material.dart';
 import 'screens/delivery_schedule_screen.dart';
+import 'screens/create_delivery_screen.dart';
 import 'services/delivery_service.dart';
+import 'screens/welcome_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -13,28 +14,26 @@ class HomeScreen extends StatelessWidget {
     return MaterialApp(
       title: 'Contact',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
       home: Scaffold(
         appBar: AppBar(
           automaticallyImplyLeading: false,
+          title: const Text('FONGFONG DELIVERY'),
           actions: [
             IconButton(
-              icon: const Icon(Icons.person),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute<ProfileScreen>(
-                    builder: (context) => ProfileScreen(
-                      actions: [
-                        SignedOutAction((context) {
-                          Navigator.of(context).pop();
-                        }),
-                      ],
+              icon: const Icon(Icons.logout),
+              onPressed: () async {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(
+                      builder: (context) => const WelcomeScreen(),
                     ),
-                  ),
-                );
+                    (route) => false,
+                  );
+                }
               },
             ),
             IconButton(
@@ -61,6 +60,25 @@ class HomeScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
+                      builder: (context) => const CreateDeliveryScreen(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.add_circle),
+                label: const Text('Create Delivery'),
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
                       builder: (context) => const DeliveryScheduleScreen(),
                     ),
                   );
@@ -68,54 +86,6 @@ class HomeScreen extends StatelessWidget {
                 icon: const Icon(Icons.local_shipping),
                 label: const Text('View Delivery Schedule'),
                 style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  await DeliveryService.initializeFakeData();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Fake data initialized successfully!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.data_object),
-                label: const Text('Initialize Sample Data'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
-                    vertical: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final count = await DeliveryService.getDataCount();
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Database contains $count orders'),
-                        backgroundColor: Colors.blue,
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.info),
-                label: const Text('Check Data Count'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 32,
                     vertical: 16,

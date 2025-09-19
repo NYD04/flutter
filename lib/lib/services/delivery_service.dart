@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/delivery_order.dart';
+import 'firestore_data_service.dart';
+import 'firebase_storage_service.dart';
 
 class DeliveryService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -40,6 +42,20 @@ class DeliveryService {
         });
   }
 
+  // Get a single delivery order by ID
+  static Future<DeliveryOrder?> getDeliveryOrder(String orderId) async {
+    try {
+      final doc = await _firestore.collection(_collection).doc(orderId).get();
+      if (doc.exists) {
+        return DeliveryOrder.fromFirestore(doc);
+      }
+      return null;
+    } catch (e) {
+      print('Error getting delivery order: $e');
+      return null;
+    }
+  }
+
   // Update delivery status
   static Future<void> updateDeliveryStatus(String orderId, DeliveryStatus status) async {
     await _firestore.collection(_collection).doc(orderId).update({
@@ -48,20 +64,114 @@ class DeliveryService {
     });
   }
 
-  // Add delivery confirmation
+  // Add delivery confirmation with Firebase Storage uploads
   static Future<void> addDeliveryConfirmation(
     String orderId,
     String confirmation,
     String? signaturePath,
-    String? photoPath,
-  ) async {
-    await _firestore.collection(_collection).doc(orderId).update({
-      'deliveryConfirmation': confirmation,
-      'signaturePath': signaturePath,
-      'photoPath': photoPath,
-      'status': DeliveryStatus.delivered.toString().split('.').last,
-      'deliveredAt': Timestamp.now(),
-    });
+    String? photoPath, {
+    String? photoUrl, // Pre-uploaded photo URL
+    Function(double)? onProgress,
+  }) async {
+    try {
+      String? signatureUrl;
+      String? finalPhotoUrl;
+
+      // Upload signature to Firebase Storage with progress tracking
+      if (signaturePath != null) {
+        print('🚀 Starting signature upload...');
+        signatureUrl = await FirebaseStorageService.uploadSignature(
+          orderId, 
+          signaturePath,
+          onProgress: (progress) {
+            onProgress?.call(progress * 0.5); // Signature takes 50% of total progress
+          },
+        );
+        print('✅ Signature uploaded to Firebase Storage: $signatureUrl');
+      }
+
+      // Handle photo - either use pre-uploaded URL or upload from path
+      if (photoUrl != null) {
+        // Photo was already uploaded directly
+        finalPhotoUrl = photoUrl;
+        print('✅ Using pre-uploaded photo URL: $finalPhotoUrl');
+      } else if (photoPath != null) {
+        // Upload photo from local path
+        print('🚀 Starting photo upload...');
+        finalPhotoUrl = await FirebaseStorageService.uploadPhoto(
+          orderId, 
+          photoPath,
+          onProgress: (progress) {
+            onProgress?.call(0.5 + (progress * 0.5)); // Photo takes remaining 50% of progress
+          },
+        );
+        print('✅ Photo uploaded to Firebase Storage: $finalPhotoUrl');
+      }
+
+      // Update delivery order with confirmation and Firebase Storage URLs
+      await _firestore.collection(_collection).doc(orderId).update({
+        'deliveryConfirmation': confirmation,
+        'signatureUrl': signatureUrl, // Firebase Storage URL
+        'photoUrl': finalPhotoUrl, // Firebase Storage URL (nullable)
+        'signaturePath': signaturePath, // Local path for signature (required)
+        'photoPath': photoPath, // Local path for photo (nullable)
+        'status': DeliveryStatus.delivered.toString().split('.').last,
+        'deliveredAt': Timestamp.now(),
+      });
+
+      print('💾 Saved paths - Signature: $signaturePath, Photo: ${photoPath ?? "null"}');
+
+      print('✅ Delivery confirmation saved with Firebase Storage URLs');
+    } catch (e) {
+      print('❌ Error adding delivery confirmation: $e');
+      rethrow;
+    }
+  }
+
+  // Create new delivery order
+  static Future<String> createDelivery(DeliveryOrder order) async {
+    try {
+      final docRef = await _firestore.collection(_collection).add(order.toFirestore());
+      print('Created delivery order: ${order.orderNumber} with ID: ${docRef.id}');
+      return docRef.id;
+    } catch (e) {
+      print('Error creating delivery order: $e');
+      rethrow;
+    }
+  }
+
+  // Generate unique order number
+  static Future<String> generateUniqueOrderNumber() async {
+    String orderNumber;
+    bool isUnique = false;
+    int attempts = 0;
+    const maxAttempts = 10;
+
+    do {
+      orderNumber = FirestoreDataService.generateOrderNumber();
+      
+      // Check if order number already exists
+      final querySnapshot = await _firestore
+          .collection(_collection)
+          .where('orderNumber', isEqualTo: orderNumber)
+          .limit(1)
+          .get();
+      
+      isUnique = querySnapshot.docs.isEmpty;
+      attempts++;
+      
+      if (!isUnique && attempts < maxAttempts) {
+        // Add a small delay and try again
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+    } while (!isUnique && attempts < maxAttempts);
+
+    if (!isUnique) {
+      // Fallback: add timestamp to ensure uniqueness
+      orderNumber = '${orderNumber}-${DateTime.now().millisecondsSinceEpoch}';
+    }
+
+    return orderNumber;
   }
 
   // Initialize fake data
@@ -97,6 +207,76 @@ class DeliveryService {
     } catch (e) {
       print('Error getting data count: $e');
       return 0;
+    }
+  }
+
+  // Get delivery files from Firebase Storage
+  static Future<List<Map<String, dynamic>>> getDeliveryFiles(String orderId) async {
+    return await FirebaseStorageService.getOrderFiles(orderId);
+  }
+
+  // Get signature URL from Firebase Storage
+  static Future<String?> getSignatureUrl(String orderId) async {
+    return await FirebaseStorageService.getOrderSignature(orderId);
+  }
+
+  // Get photo URLs from Firebase Storage
+  static Future<List<String>> getPhotoUrls(String orderId) async {
+    return await FirebaseStorageService.getOrderPhotos(orderId);
+  }
+
+  // Get signature and photo paths from delivery order
+  static Future<Map<String, String?>> getDeliveryPaths(String orderId) async {
+    try {
+      print('🔍 Getting delivery paths for order: $orderId');
+      final doc = await _firestore.collection(_collection).doc(orderId).get();
+      if (doc.exists) {
+        final data = doc.data() as Map<String, dynamic>?;
+        final signaturePath = data?['signaturePath'] as String?;
+        final photoPath = data?['photoPath'] as String?;
+        
+        print('📝 Signature path: $signaturePath');
+        print('📷 Photo path: $photoPath');
+        
+        return {
+          'signaturePath': signaturePath,
+          'photoPath': photoPath,
+        };
+      }
+      print('❌ Document does not exist for order: $orderId');
+      return {'signaturePath': null, 'photoPath': null};
+    } catch (e) {
+      print('❌ Error getting delivery paths: $e');
+      return {'signaturePath': null, 'photoPath': null};
+    }
+  }
+
+  // Add delivery confirmation without Firebase Storage (fallback method)
+  static Future<void> addDeliveryConfirmationWithoutStorage(
+    String orderId,
+    String confirmation,
+    String? signaturePath,
+    String? photoPath,
+  ) async {
+    try {
+      print('🔄 Adding delivery confirmation without Firebase Storage...');
+      
+      // Update delivery order with confirmation and local file paths only
+      await _firestore.collection(_collection).doc(orderId).update({
+        'deliveryConfirmation': confirmation,
+        'signaturePath': signaturePath, // Local path for signature (required)
+        'photoPath': photoPath, // Local path for photo (nullable)
+        'status': DeliveryStatus.delivered.toString().split('.').last,
+        'deliveredAt': Timestamp.now(),
+        'storageStatus': 'local_only', // Mark that files are stored locally only
+      });
+
+      print('💾 Saved local paths - Signature: $signaturePath, Photo: ${photoPath ?? "null"}');
+
+      print('✅ Delivery confirmation saved with local file paths only');
+    } catch (e) {
+      print('❌ Error adding delivery confirmation without storage: $e');
+      rethrow;
     }
   }
 
