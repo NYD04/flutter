@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../home.dart';
 import 'forget_password_email_screen.dart';
+import '../services/auth_service.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -32,12 +33,12 @@ class _SignInScreenState extends State<SignInScreen> {
     });
 
     try {
-      final result = await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      final result = await AuthService.signInWithEmailAndPassword(
+        _emailController.text.trim(),
+        _passwordController.text,
       );
 
-      if (result.user != null) {
+      if (result != null && result.user != null) {
         // Navigate to main app
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
@@ -45,6 +46,16 @@ class _SignInScreenState extends State<SignInScreen> {
               builder: (context) => const HomeScreen(),
             ),
             (route) => false,
+          );
+        }
+      } else {
+        // Handle sign in failure
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Sign in failed. Please check your credentials.'),
+              backgroundColor: Colors.red[600],
+            ),
           );
         }
       }
@@ -388,19 +399,36 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
 
     try {
-      final result = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
+      final result = await AuthService.registerUser(
+        _emailController.text.trim(),
+        _passwordController.text,
       );
 
-      if (result.user != null) {
-        // Navigate to main app
+      if (result != null && result.user != null) {
+        // Account created successfully
         if (mounted) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (context) => const HomeScreen(),
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Account created successfully! Please sign in.'),
+              backgroundColor: Colors.green[600],
             ),
-            (route) => false,
+          );
+          
+          // Navigate to sign in screen
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => const SignInScreen(),
+            ),
+          );
+        }
+      } else {
+        // Handle registration failure
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Registration failed. Please try again.'),
+              backgroundColor: Colors.red[600],
+            ),
           );
         }
       }
@@ -416,13 +444,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         case 'invalid-email':
           message = 'Invalid email address.';
           break;
+        case 'operation-not-allowed':
+          message = 'Email/password accounts are not enabled.';
+          break;
       }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(message),
-            backgroundColor: Colors.blue[600],
+            backgroundColor: Colors.red[600],
           ),
         );
       }
@@ -431,7 +462,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
-            backgroundColor: Colors.blue[600],
+            backgroundColor: Colors.red[600],
           ),
         );
       }
@@ -682,7 +713,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           ),
                           GestureDetector(
                             onTap: () {
-                              Navigator.of(context).pop();
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (context) => const SignInScreen(),
+                                ),
+                              );
                             },
                             child: Text(
                               'Sign In',

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import '../services/password_reset_service.dart';
 import 'forget_password_code_screen.dart';
 
@@ -29,6 +28,19 @@ class _ForgetPasswordEmailScreenState extends State<ForgetPasswordEmailScreen> {
     });
 
     try {
+      // First check email format
+      if (!PasswordResetService.isValidEmailFormat(_emailController.text.trim())) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Please enter a valid email address.'),
+              backgroundColor: Colors.red[600],
+            ),
+          );
+        }
+        return;
+      }
+
       // Check if email exists in Firebase Auth
       final emailExists = await PasswordResetService.checkEmailExists(_emailController.text.trim());
       
@@ -36,8 +48,9 @@ class _ForgetPasswordEmailScreenState extends State<ForgetPasswordEmailScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('No account found with this email address.'),
+              content: const Text('No account found with this email address. Please check your email or create a new account.'),
               backgroundColor: Colors.red[600],
+              duration: const Duration(seconds: 4),
             ),
           );
         }
@@ -47,13 +60,51 @@ class _ForgetPasswordEmailScreenState extends State<ForgetPasswordEmailScreen> {
       // Generate random 4-digit code
       final code = PasswordResetService.generateVerificationCode(_emailController.text.trim());
       
-      // Show code in popup (for demo purposes)
+      // Show success message first
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Email verified! Verification code generated.'),
+            backgroundColor: Colors.green[600],
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      
+      // Show code in popup
       if (mounted) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Verification Code'),
-            content: Text('Your verification code is: $code\n\n'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Your verification code is:'),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey[300]!),
+                  ),
+                  child: Text(
+                    code,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Please enter this code in the next screen.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
+            ),
             actions: [
               TextButton(
                 onPressed: () {
@@ -68,7 +119,7 @@ class _ForgetPasswordEmailScreenState extends State<ForgetPasswordEmailScreen> {
                     ),
                   );
                 },
-                child: const Text('OK'),
+                child: const Text('Continue'),
               ),
             ],
           ),
@@ -222,8 +273,8 @@ class _ForgetPasswordEmailScreenState extends State<ForgetPasswordEmailScreen> {
                             if (value == null || value.isEmpty) {
                               return 'Please enter your email';
                             }
-                            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                              return 'Please enter a valid email';
+                            if (!PasswordResetService.isValidEmailFormat(value)) {
+                              return 'Please enter a valid email address';
                             }
                             return null;
                           },

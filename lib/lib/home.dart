@@ -36,12 +36,6 @@ class HomeScreen extends StatelessWidget {
                 }
               },
             ),
-            IconButton(
-              onPressed: () {
-                // TODO: Navigate to the Insert Contact Screen
-              },
-              icon: const Icon(Icons.add),
-            ),
           ],
         ),
         body: Center(

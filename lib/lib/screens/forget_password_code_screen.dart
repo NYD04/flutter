@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/password_reset_service.dart';
-import 'forget_password_new_password_screen.dart';
+import '../home.dart';
 
 class ForgetPasswordCodeScreen extends StatefulWidget {
   final String email;
@@ -68,14 +68,54 @@ class _ForgetPasswordCodeScreenState extends State<ForgetPasswordCodeScreen> {
       return;
     }
 
-    // Navigate to new password screen
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => ForgetPasswordNewPasswordScreen(
-          email: widget.email,
-        ),
-      ),
-    );
+    // OTP verified successfully - login directly
+    _loginWithOTP();
+  }
+
+  Future<void> _loginWithOTP() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Login using OTP
+      await PasswordResetService.loginWithOTP(widget.email);
+      
+      // Clear the verification code
+      PasswordResetService.clearVerificationCode(widget.email);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Login successful!'),
+            backgroundColor: Colors.green[600],
+          ),
+        );
+
+        // Navigate to home screen
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const HomeScreen(),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Login failed: $e'),
+            backgroundColor: Colors.red[600],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -153,7 +193,7 @@ class _ForgetPasswordCodeScreenState extends State<ForgetPasswordCodeScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Verify your account',
+                        'Login with OTP',
                         style: TextStyle(
                           fontSize: 18,
                           color: Colors.grey[600],
@@ -185,7 +225,7 @@ class _ForgetPasswordCodeScreenState extends State<ForgetPasswordCodeScreen> {
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          'Please Enter 4 Digit Code Sent To ${widget.email}',
+                          'Enter the 4-digit code to login directly\nNo password needed!',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 16,
@@ -205,6 +245,7 @@ class _ForgetPasswordCodeScreenState extends State<ForgetPasswordCodeScreen> {
                                 focusNode: _focusNodes[index],
                                 textAlign: TextAlign.center,
                                 keyboardType: TextInputType.number,
+                                enabled: true, // Enable the input fields
                                 inputFormatters: [
                                   FilteringTextInputFormatter.digitsOnly,
                                   LengthLimitingTextInputFormatter(1),
@@ -245,7 +286,7 @@ class _ForgetPasswordCodeScreenState extends State<ForgetPasswordCodeScreen> {
                             child: _isLoading
                                 ? const CircularProgressIndicator(color: Colors.white)
                                 : const Text(
-                                    'Verify',
+                                    'Login',
                                     style: TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,

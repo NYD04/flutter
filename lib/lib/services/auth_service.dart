@@ -58,6 +58,40 @@ class AuthService {
     }
   }
   
+  // Register new user
+  static Future<UserCredential?> registerUser(String email, String password) async {
+    try {
+      final UserCredential result = await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return result;
+    } on FirebaseAuthException catch (e) {
+      print('Registration error: ${e.message}');
+      return null;
+    } catch (e) {
+      print('Unexpected registration error: $e');
+      return null;
+    }
+  }
+  
+  // Sign in with email and password
+  static Future<UserCredential?> signInWithEmailAndPassword(String email, String password) async {
+    try {
+      final UserCredential result = await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+      return result;
+    } on FirebaseAuthException catch (e) {
+      print('Sign in error: ${e.message}');
+      return null;
+    } catch (e) {
+      print('Unexpected sign in error: $e');
+      return null;
+    }
+  }
+  
   // Sign out
   static Future<void> signOut() async {
     await _auth.signOut();
